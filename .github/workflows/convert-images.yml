@@ -1,0 +1,21 @@
+name: Convert image
+on: [pull_request]
+
+jobs:
+  convert-push-images:
+    runs-on: ubuntu-20.04
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - uses: imjasonh/setup-crane@v0.1
+      - name: Install tools
+        run: sudo bash tools/install-nerdctl.sh
+      - name: Convert images
+        run: |
+          sudo -E bash tools/start-containerd.sh
+          sudo -E python -u ./convert_images.py
