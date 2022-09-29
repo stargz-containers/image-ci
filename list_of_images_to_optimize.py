@@ -30,7 +30,6 @@ images_to_optimize = [
     Image("mariadb:10.7.3", env={"MYSQL_ROOT_PASSWORD": "abc"}),
     Image("wordpress:5.9.2"),
     Image("php:8.1.4-apache-bullseye"),
-    Image("rabbitmq:3.9.14"),
     Image(
         "elasticsearch:8.1.1",
         mount=[
@@ -43,7 +42,7 @@ images_to_optimize = [
     Image("php:8.1.4", ["php", "-r", 'echo "hello world\\n";']),
     Image(
         "gcc:11.2.0",
-        ["sh", "-c", "cd /src; gcc main.c; ./a.out; exit\n"],
+        ["sh", "-c", "cd /src; gcc -o /a.out main.c; /a.out; exit\n"],
         mount=[("mounts/gcc", "/src")],
     ),
     Image('golang:1.18', ["sh", "-c", 'cd /go/src; go run main.go; exit\n'], mount=[('mounts/go', '/go/src')]),

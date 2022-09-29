@@ -1,4 +1,6 @@
-set -eux
+#!/bin/bash
+
+set -eux -o pipefail
 
 containerd -v
 containerd &
@@ -6,4 +8,4 @@ containerd &
 sleep 5
 
 # we verify that it works
-nerdctl run hello-world
+nerdctl run --rm ghcr.io/stargz-containers/ubuntu:22.04 echo hello

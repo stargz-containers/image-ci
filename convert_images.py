@@ -7,7 +7,7 @@ from pathlib import Path
 
 from list_of_images_to_optimize import Image, images_to_optimize
 
-CONVERTED_IMAGES_PREFIX = "ghcr.io/gabrieldemarmiesse/estargz-images"
+CONVERTED_IMAGES_PREFIX = "ghcr.io/ktock"
 NUMBER_OF_THREADS = 1
 PUSH = "--push" in sys.argv
 
@@ -62,6 +62,7 @@ class ConversionJob:
                 "image",
                 "optimize",
                 "--oci",
+                "--period=30",
             ]
             + additional_options
             + [
@@ -93,7 +94,8 @@ class ConversionJob:
         self.pull_convert_and_push()
 
     def pull_convert_and_push(self):
-        run(["nerdctl", "pull", "-q", self.src_image.name])
+        src_image_name = get_normalized_image_name(self.src_image.name)
+        run(["nerdctl", "pull", "-q", src_image_name])
         self.convert()
 
         if PUSH:
@@ -111,13 +113,14 @@ class OriginalConversionJob(ConversionJob):
         return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-org"
 
     def pull_convert_and_push(self):
+        src_image_name = get_normalized_image_name(self.src_image.name)
         run(
             [
                 "crane",
                 "copy",
                 "--platform",
                 "linux/amd64",
-                self.src_image.name,
+                src_image_name,
                 self.converted_image_name,
             ]
         )
