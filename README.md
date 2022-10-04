@@ -1,23 +1,23 @@
-# estargz-images
-A repository to convert existing Docker image to the estargz format
+# eStargz images
 
-At every commit on master, the Docker images will be converted to the estargz format and pushed 
-to the gabrieldemarmiesse/ namespace. You can then use those estargz images like so
+:information_source: Available images: https://github.com/orgs/stargz-containers/packages
+
+A repository to convert an existing image to eStargz image.
+
+At every commit on master, images are converted to eStargz and pushed to [`ghcr.io/stargz-containers`](https://github.com/orgs/stargz-containers/packages) namespace. 
+
+You can then use those eStargz images like so
 
 ```bash
-nerdctl --snapshotter=stargz run -it ghcr.io/gabrieldemarmiesse/estargz-images/python:3.9-esgz
+nerdctl --snapshotter=stargz run -it ghcr.io/stargz-containers/python:3.9-esgz
 ```
 
 The original image is `python:3.9`
+A copy of the original image is also pushed for benchmarking purposes (`ghcr.io/stargz-containers/python:3.9-org`).
 
-A copy of the original image is also pushed for benchmarking purposes. 
-It will have a name like so:
+If you want to add an image to the list of images available for conversion, please make a pull request to add the public image to [`list_of_images_to_optimize.py`](./list_of_images_to_optimize.py).
 
-```
-ghcr.io/gabrieldemarmiesse/estargz-images/python:3.9-org
-```
+## About project
 
-If you want to add a docker image to the list of Docker images available for conversion, 
-please make a pull request to add the public image here:
-
-https://github.com/gabrieldemarmiesse/estargz-images/blob/master/list_of_images_to_optimize.py
+This project started based on the discussion in https://github.com/containerd/stargz-snapshotter/issues/715 .
+@gabrieldemarmiesse contributed the original version as https://github.com/gabrieldemarmiesse/estargz-images and this repository is based on it.

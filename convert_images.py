@@ -7,7 +7,7 @@ from pathlib import Path
 
 from list_of_images_to_optimize import Image, images_to_optimize
 
-CONVERTED_IMAGES_PREFIX = "ghcr.io/ktock"
+CONVERTED_IMAGES_PREFIX = "ghcr.io/stargz-containers"
 NUMBER_OF_THREADS = 1
 PUSH = "--push" in sys.argv
 

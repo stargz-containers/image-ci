@@ -2,11 +2,8 @@ name: Convert image
 on: [pull_request]
 
 jobs:
-  convert-push-images:
+  convert-images:
     runs-on: ubuntu-20.04
-    permissions:
-      packages: write
-      contents: read
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
