@@ -59,5 +59,10 @@ images_to_optimize = [
     Image("python:3.10-slim", ["python", "-c", "print('hello world')"]),
     Image("python:3.11.0rc2", ["python", "-c", "print('hello world')"]),
     Image("pypy:3.9", ["pypy3", "-c", "print('hello world')"]),
-    Image("node:17.8.0", ["node", "-e", 'console.log("hello")'])
+    Image("node:17.8.0", ["node", "-e", 'console.log("hello")']),
+    Image(
+        "cms-higgs-4l-full:latest",
+        ["sh", "-c", "export CMS_INPUT_FILES=file:///tmp/0431F9FA-6202-E311-8B98-002481E1501E.root && /opt/cms/entrypoint.sh cmsRun /configs/demoanalyzer_cfg_level4MC.py"],
+        mount=[("mounts/cms", "/tmp")],
+    ),
 ]
