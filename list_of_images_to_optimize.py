@@ -29,6 +29,8 @@ images_to_optimize = [
     Image("postgres:14.2", env={"POSTGRES_PASSWORD": "abc"}),
     Image("mariadb:10.7.3", env={"MYSQL_ROOT_PASSWORD": "abc"}),
     Image("wordpress:5.9.2"),
+    Image("fluent/fluentd:v1.14-1"),
+    Image("fluent/fluentd:v1.14-arm64-debian"),
     Image("php:8.1.4-apache-bullseye"),
     # FIXME: Device or resource busy
     # Image(
