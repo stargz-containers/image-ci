@@ -17,6 +17,7 @@ images_to_optimize = [
     Image("alpine:3.21.2", ["sh", "-c", "echo hello world"]),
     Image("nixos/nix:2.26.1", ["sh", "-c", "echo hello world"]),
     Image("fedora:41", ["sh", "-c", "echo hello world"]),
+    Image("ubuntu:24.04", ["sh", "-c", "echo hello world"]),
     Image("rethinkdb:2.4.3"),
     # doesn't work:
     # Error: failed to copy image: PUT https://index.docker.io/v2/.../glassfish/manifests/4.1-jdk8-org:
