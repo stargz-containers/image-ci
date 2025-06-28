@@ -57,5 +57,6 @@ images_to_optimize = [
     Image("python:3.13-slim", ["python", "-c", "print('hello world')"]),
     Image("python:3.13", ["python", "-c", "print('hello world')"]),
     Image("pypy:3.10", ["pypy3", "-c", "print('hello world')"]),
-    Image("node:23.7.0", ["node", "-e", 'console.log("hello")'])
+    Image("node:23.7.0", ["node", "-e", 'console.log("hello")']),
+    Image("andyzhangx/smb-csi:v1.17.0")
 ]
