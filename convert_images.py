@@ -1,4 +1,5 @@
 import json
+import platform
 import subprocess
 import sys
 import time
@@ -10,6 +11,9 @@ from list_of_images_to_optimize import Image, images_to_optimize
 CONVERTED_IMAGES_PREFIX = "ghcr.io/stargz-containers"
 NUMBER_OF_THREADS = 1
 PUSH = "--push" in sys.argv
+MERGE = "--merge" in sys.argv
+ARCH = "" if MERGE else f"-{platform.machine()}"
+ARCHS = ["x86_64", "aarch64"]
 
 
 def run(args: list):
@@ -118,10 +122,14 @@ class OriginalConversionJob(ConversionJob):
         run(
             [
                 "crane",
-                "copy",
+                "index",
+                "filter",
+                src_image_name,
                 "--platform",
                 "linux/amd64",
-                src_image_name,
+                "--platform",
+                "linux/arm64",
+                "-t",
                 self.converted_image_name,
             ]
         )
@@ -131,7 +139,7 @@ class OriginalConversionJob(ConversionJob):
 class StargzConversionJob(ConversionJob):
     @property
     def converted_image_name(self) -> str:
-        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-esgz-noopt"
+        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-esgz-noopt{ARCH}"
 
     def convert(self):
         self.ctr_remote_image_optimize(optimize=False)
@@ -140,7 +148,7 @@ class StargzConversionJob(ConversionJob):
 class EStargzConversionJob(ConversionJob):
     @property
     def converted_image_name(self) -> str:
-        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-esgz"
+        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-esgz{ARCH}"
 
     def convert(self):
         self.ctr_remote_image_optimize()
@@ -149,7 +157,7 @@ class EStargzConversionJob(ConversionJob):
 class EStargzZstdchunkedConversionJob(ConversionJob):
     @property
     def converted_image_name(self) -> str:
-        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-zstdchunked"
+        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-zstdchunked{ARCH}"
 
     def convert(self):
         self.ctr_remote_image_optimize(zstdchunked=True)
@@ -162,14 +170,21 @@ def main():
         if PUSH:
             # this is just transferring layers. If we don't have permission to push,
             # we can't do it.
-            conversion_jobs.append(OriginalConversionJob(image_and_args))
+            if platform.machine() == "x86_64":
+                conversion_jobs.append(OriginalConversionJob(image_and_args))
         conversion_jobs += [
             StargzConversionJob(image_and_args),
             EStargzConversionJob(image_and_args),
             EStargzZstdchunkedConversionJob(image_and_args),
         ]
 
-    if NUMBER_OF_THREADS == 1:
+    if MERGE:
+        for job in conversion_jobs:
+            arch_args = []
+            for arch in ARCHS:
+                arch_args += ["-m", f"{job.converted_image_name}-{arch}"]
+            run(["crane", "index", "append", "-t", job.converted_image_name] + arch_args)
+    elif NUMBER_OF_THREADS == 1:
         for job in conversion_jobs:
             job.pull_convert_and_push_if_necessary()
     else:
