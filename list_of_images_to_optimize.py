@@ -9,6 +9,9 @@ If the docker image needs some environment variables or mounts to boot,
 you can set those as the argument of the Image() class.
 You can take postgres as an example for the env and
 elasticsearch as example for the mount.
+
+If copy_only=True is set, the image is only copied as-is
+(as the "-org" image) and is not converted.
 """
 
 from image_class import Image

@@ -155,22 +155,31 @@ class OriginalConversionJob(ConversionJob):
     def converted_image_name(self) -> str:
         return f"{CONVERTED_IMAGES_PREFIX}/{get_image_name_without_registry(self.src_image.name)}-org"
 
+    def source_is_index(self) -> bool:
+        src_image_name = get_normalized_image_name(self.src_image.name)
+        manifest = json.loads(subprocess.check_output(["crane", "manifest", src_image_name]))
+        return "manifests" in manifest
+
     def pull_convert_and_push(self):
         src_image_name = get_normalized_image_name(self.src_image.name)
-        run(
-            [
-                "crane",
-                "index",
-                "filter",
-                src_image_name,
-                "--platform",
-                "linux/amd64",
-                "--platform",
-                "linux/arm64",
-                "-t",
-                self.converted_image_name,
-            ]
-        )
+        if self.source_is_index():
+            run(
+                [
+                    "crane",
+                    "index",
+                    "filter",
+                    src_image_name,
+                    "--platform",
+                    "linux/amd64",
+                    "--platform",
+                    "linux/arm64",
+                    "-t",
+                    self.converted_image_name,
+                ]
+            )
+        else:
+            # crane index filter fails on single-platform images
+            run(["crane", "copy", src_image_name, self.converted_image_name])
         print(f"--> Pushed {self.converted_image_name} to registry")
 
 
@@ -226,6 +235,11 @@ def main():
             # we can't do it.
             if platform.machine() == "x86_64":
                 conversion_jobs.append(OriginalConversionJob(image_and_args))
+        if image_and_args.copy_only:
+            # Without --push nothing is copied, so we only check the source exists.
+            if not PUSH and not MERGE:
+                run(["crane", "digest", get_normalized_image_name(image_and_args.name)])
+            continue
         conversion_jobs += [
             StargzConversionJob(image_and_args),
             EStargzConversionJob(image_and_args),
