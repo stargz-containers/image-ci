@@ -9,6 +9,9 @@ If the docker image needs some environment variables or mounts to boot,
 you can set those as the argument of the Image() class.
 You can take postgres as an example for the env and
 elasticsearch as example for the mount.
+
+If copy_only=True is set, the image is only copied as-is
+(as the "-org" image) and is not converted.
 """
 
 from image_class import Image
@@ -56,5 +59,7 @@ images_to_optimize = [
     Image("python:3.15-slim", ["python", "-c", "print('hello world')"]),
     Image("python:3.15", ["python", "-c", "print('hello world')"]),
     Image("pypy:3.12", ["pypy3", "-c", "print('hello world')"]),
-    Image("node:26.12.1", ["node", "-e", 'console.log("hello")'])
+    Image("node:26.12.1", ["node", "-e", 'console.log("hello")']),
+    Image("public.ecr.aws/soci-workshop-examples/ffmpeg:latest", copy_only=True),
+    Image("public.ecr.aws/eks-distro/coredns/coredns:v1.12.2-eks-1-31-latest", copy_only=True)
 ]

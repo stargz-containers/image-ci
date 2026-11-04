@@ -21,12 +21,50 @@ def run(args: list):
     subprocess.check_call(args)
 
 
-def get_normalized_image_name(docker_image_name: str) -> str:
-    """We add docker.io/library/ if necessary"""
-    if "/" not in docker_image_name:
-        return "docker.io/library/" + docker_image_name
+def split_registry_domain(image_name: str) -> tuple:
+    """We split an image name into (registry domain, remote name).
+
+    This follows splitDockerDomain of github.com/distribution/reference.
+    See also: https://github.com/distribution/reference/blob/0965666a6ade2e06035fe352e38344be1e68951a/normalize.go#L143-L191
+    """
+    first, sep, rest = image_name.partition("/")
+    if not sep:
+        return "docker.io", "library/" + image_name
+    if first == "localhost":
+        domain, remote_name = first, rest
+    elif first == "index.docker.io":
+        domain, remote_name = "docker.io", rest
+    elif "." in first or ":" in first or first.lower() != first:
+        domain, remote_name = first, rest
     else:
-        return "docker.io/" + docker_image_name
+        domain, remote_name = "docker.io", image_name
+    if domain == "docker.io" and "/" not in remote_name:
+        remote_name = "library/" + remote_name
+    return domain, remote_name
+
+
+def get_normalized_image_name(docker_image_name: str) -> str:
+    """We add docker.io/library/ if necessary.
+
+    References that already include a registry domain (e.g. ghcr.io/foo/bar:tag)
+    are kept as they are.
+    """
+    domain, remote_name = split_registry_domain(docker_image_name)
+    return f"{domain}/{remote_name}"
+
+
+def get_image_name_without_registry(image_name: str) -> str:
+    """We remove the registry domain (e.g. ghcr.io/) if present.
+
+    For docker.io images we also remove "library/", like Docker's familiar
+    names, so "alpine:3" and "docker.io/library/alpine:3" give "alpine:3".
+    """
+    domain, remote_name = split_registry_domain(image_name)
+    if domain == "docker.io" and remote_name.startswith("library/"):
+        familiar_name = remote_name[len("library/"):]
+        if "/" not in familiar_name:
+            return familiar_name
+    return remote_name
 
 
 class ConversionJob:
@@ -115,31 +153,40 @@ class ConversionJob:
 class OriginalConversionJob(ConversionJob):
     @property
     def converted_image_name(self) -> str:
-        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-org"
+        return f"{CONVERTED_IMAGES_PREFIX}/{get_image_name_without_registry(self.src_image.name)}-org"
+
+    def source_is_index(self) -> bool:
+        src_image_name = get_normalized_image_name(self.src_image.name)
+        manifest = json.loads(subprocess.check_output(["crane", "manifest", src_image_name]))
+        return "manifests" in manifest
 
     def pull_convert_and_push(self):
         src_image_name = get_normalized_image_name(self.src_image.name)
-        run(
-            [
-                "crane",
-                "index",
-                "filter",
-                src_image_name,
-                "--platform",
-                "linux/amd64",
-                "--platform",
-                "linux/arm64",
-                "-t",
-                self.converted_image_name,
-            ]
-        )
+        if self.source_is_index():
+            run(
+                [
+                    "crane",
+                    "index",
+                    "filter",
+                    src_image_name,
+                    "--platform",
+                    "linux/amd64",
+                    "--platform",
+                    "linux/arm64",
+                    "-t",
+                    self.converted_image_name,
+                ]
+            )
+        else:
+            # crane index filter fails on single-platform images
+            run(["crane", "copy", src_image_name, self.converted_image_name])
         print(f"--> Pushed {self.converted_image_name} to registry")
 
 
 class StargzConversionJob(ConversionJob):
     @property
     def converted_image_name(self) -> str:
-        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-esgz-noopt{ARCH}"
+        return f"{CONVERTED_IMAGES_PREFIX}/{get_image_name_without_registry(self.src_image.name)}-esgz-noopt{ARCH}"
 
     def convert(self):
         self.ctr_remote_image_optimize(optimize=False)
@@ -148,7 +195,7 @@ class StargzConversionJob(ConversionJob):
 class EStargzConversionJob(ConversionJob):
     @property
     def converted_image_name(self) -> str:
-        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-esgz{ARCH}"
+        return f"{CONVERTED_IMAGES_PREFIX}/{get_image_name_without_registry(self.src_image.name)}-esgz{ARCH}"
 
     def convert(self):
         self.ctr_remote_image_optimize()
@@ -157,13 +204,29 @@ class EStargzConversionJob(ConversionJob):
 class EStargzZstdchunkedConversionJob(ConversionJob):
     @property
     def converted_image_name(self) -> str:
-        return f"{CONVERTED_IMAGES_PREFIX}/{self.src_image.name}-zstdchunked{ARCH}"
+        return f"{CONVERTED_IMAGES_PREFIX}/{get_image_name_without_registry(self.src_image.name)}-zstdchunked{ARCH}"
 
     def convert(self):
         self.ctr_remote_image_optimize(zstdchunked=True)
 
 
+def check_converted_image_name_collisions(images: list):
+    """We fail if two images from different registries would get the same converted name"""
+    sources_by_name = {}
+    for image in images:
+        name = get_image_name_without_registry(image.name)
+        source = get_normalized_image_name(image.name)
+        if name in sources_by_name and sources_by_name[name] != source:
+            raise ValueError(
+                f"Images {sources_by_name[name]} and {source} would both be "
+                f"converted to {CONVERTED_IMAGES_PREFIX}/{name}"
+            )
+        sources_by_name[name] = source
+
+
 def main():
+    check_converted_image_name_collisions(images_to_optimize)
+
     conversion_jobs = []
 
     for image_and_args in images_to_optimize:
@@ -172,6 +235,11 @@ def main():
             # we can't do it.
             if platform.machine() == "x86_64":
                 conversion_jobs.append(OriginalConversionJob(image_and_args))
+        if image_and_args.copy_only:
+            # Without --push nothing is copied, so we only check the source exists.
+            if not PUSH and not MERGE:
+                run(["crane", "digest", get_normalized_image_name(image_and_args.name)])
+            continue
         conversion_jobs += [
             StargzConversionJob(image_and_args),
             EStargzConversionJob(image_and_args),
